@@ -1,0 +1,1237 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JSON Formatlayıcı & Karşılaştırıcı (Diff)</title>
+    <style>
+        :root {
+            --bg-body: #f5f6f8;
+            --bg-panel: #ffffff;
+            --bg-gutter: #f0f1f4;
+            --bg-header: #ffffff;
+            --border-color: #dcdde1;
+            --text-main: #2f3640;
+            --text-muted: #7f8fa6;
+            --accent: #007acc;
+            --accent-hover: #0062a3;
+            --btn-sec: #e8eaed;
+            --btn-sec-hover: #dadce0;
+            --btn-sec-text: #2f3640;
+            
+            /* Syntax Colors (Light) */
+            --syn-key: #0451a5;
+            --syn-str: #a31515;
+            --syn-num: #098658;
+            --syn-bool: #0000ff;
+            --syn-null: #0000ff;
+            --syn-punc: #333333;
+
+            /* Diff Colors (Light) */
+            --diff-add-bg: #e6ffec;
+            --diff-add-border: #2da44e;
+            --diff-rem-bg: #ffebe9;
+            --diff-rem-border: #cf222e;
+            --diff-mod-bg: #fff8c5;
+            --diff-mod-border: #d4a72c;
+
+            /* Error & Search */
+            --err-bg: #ffeaea;
+            --err-text: #d63031;
+            --ok-text: #27ae60;
+            --mark-bg: #ffeaa7;
+            --mark-text: #000000;
+
+            /* Dynamic Font */
+            --code-font: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', 'Source Code Pro', 'source-code-pro', monospace;
+            --code-size: 12px;
+        }
+
+        body.dark-theme {
+            --bg-body: #181818;
+            --bg-panel: #1f1f1f;
+            --bg-gutter: #181818;
+            --bg-header: #202020;
+            --border-color: #333333;
+            --text-main: #d4d4d4;
+            --text-muted: #858585;
+            --accent: #0e639c;
+            --accent-hover: #1177bb;
+            --btn-sec: #333333;
+            --btn-sec-hover: #444444;
+            --btn-sec-text: #e0e0e0;
+
+            /* Syntax Colors (Dark) */
+            --syn-key: #9cdcfe;
+            --syn-str: #ce9178;
+            --syn-num: #b5cea8;
+            --syn-bool: #569cd6;
+            --syn-null: #569cd6;
+            --syn-punc: #d4d4d4;
+
+            /* Diff Colors (Dark) */
+            --diff-add-bg: rgba(46, 160, 67, 0.2);
+            --diff-add-border: #3fb950;
+            --diff-rem-bg: rgba(248, 81, 73, 0.2);
+            --diff-rem-border: #f85149;
+            --diff-mod-bg: rgba(210, 153, 34, 0.22);
+            --diff-mod-border: #d29922;
+
+            --err-bg: #3b1818;
+            --err-text: #f48771;
+            --ok-text: #89d185;
+            --mark-bg: #614d00;
+            --mark-text: #ffffff;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            padding: 12px;
+            transition: background-color 0.2s, color 0.2s;
+        }
+
+        header {
+            background-color: var(--bg-header);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 8px 14px;
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .title-group {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        h1 {
+            font-size: 1.05rem;
+            font-weight: 600;
+        }
+
+        .mode-switcher {
+            display: flex;
+            background: var(--btn-sec);
+            padding: 2px;
+            border-radius: 5px;
+            border: 1px solid var(--border-color);
+        }
+
+        .mode-switcher button {
+            background: transparent;
+            color: var(--btn-sec-text);
+            border: none;
+            padding: 4px 12px;
+            font-size: 0.82rem;
+            border-radius: 4px;
+        }
+
+        .mode-switcher button.active {
+            background: var(--accent);
+            color: #ffffff;
+            font-weight: 600;
+        }
+
+        .controls {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        button, select {
+            background-color: var(--accent);
+            color: #ffffff;
+            border: none;
+            padding: 5px 11px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.82rem;
+            transition: background-color 0.15s;
+        }
+
+        button:hover {
+            background-color: var(--accent-hover);
+        }
+
+        button.secondary, select {
+            background-color: var(--btn-sec);
+            color: var(--btn-sec-text);
+            border: 1px solid var(--border-color);
+        }
+
+        button.secondary:hover, select:hover {
+            background-color: var(--btn-sec-hover);
+        }
+
+        button.toggle-on {
+            background-color: var(--accent);
+            color: #ffffff;
+            border-color: var(--accent);
+        }
+
+        .main-view {
+            display: flex;
+            gap: 12px;
+            flex: 1;
+            min-height: 0;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+        }
+
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 5px;
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            min-height: 26px;
+            gap: 8px;
+        }
+
+        .panel-tools {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .panel-tools button {
+            padding: 2px 8px;
+            font-size: 0.78rem;
+        }
+
+        .search-box {
+            display: flex;
+            align-items: center;
+            background: var(--bg-panel);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            padding: 1px 6px;
+        }
+
+        .search-box input {
+            background: transparent;
+            border: none;
+            color: var(--text-main);
+            font-size: 0.78rem;
+            outline: none;
+            width: 120px;
+            padding: 2px;
+        }
+
+        .search-count {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            margin-left: 4px;
+        }
+
+        /* Editor & Gutter */
+        .editor-box {
+            flex: 1;
+            display: flex;
+            background-color: var(--bg-panel);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .editor-box:focus-within {
+            border-color: var(--accent);
+        }
+
+        .gutter {
+            width: 44px;
+            background-color: var(--bg-gutter);
+            border-right: 1px solid var(--border-color);
+            padding: 10px 6px;
+            text-align: right;
+            font-family: var(--code-font);
+            font-size: var(--code-size);
+            line-height: 1.5;
+            color: var(--text-muted);
+            user-select: none;
+            overflow: hidden;
+        }
+
+        .gutter div.err-line {
+            background-color: var(--err-bg);
+            color: var(--err-text);
+            font-weight: bold;
+            border-radius: 2px;
+            padding-right: 2px;
+        }
+
+        .code-container {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .code-backdrop, .code-textarea {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 10px;
+            border: none;
+            font-family: var(--code-font);
+            font-size: var(--code-size);
+            line-height: 1.5;
+            letter-spacing: normal;
+            tab-size: 2;
+            overflow: auto;
+        }
+
+        .wrap-on .code-backdrop, .wrap-on .code-textarea {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            overflow-x: hidden;
+        }
+
+        .wrap-off .code-backdrop, .wrap-off .code-textarea {
+            white-space: pre;
+            overflow-x: auto;
+        }
+
+        .code-backdrop {
+            color: transparent;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .code-textarea {
+            background: transparent;
+            color: transparent;
+            caret-color: var(--text-main);
+            resize: none;
+            outline: none;
+            z-index: 2;
+        }
+
+        .code-textarea::selection {
+            background: rgba(0, 122, 204, 0.25);
+        }
+
+        /* Output Views */
+        .output-content {
+            flex: 1;
+            padding: 10px;
+            font-family: var(--code-font);
+            font-size: var(--code-size);
+            line-height: 1.5;
+            overflow: auto;
+            white-space: pre;
+        }
+
+        .output-content.wrap-on {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        /* Syntax Highlighting */
+        .syn-key { color: var(--syn-key); }
+        .syn-str { color: var(--syn-str); }
+        .syn-num { color: var(--syn-num); }
+        .syn-bool { color: var(--syn-bool); font-weight: 500; }
+        .syn-null { color: var(--syn-null); font-style: italic; }
+        .syn-punc { color: var(--syn-punc); }
+
+        mark {
+            background-color: var(--mark-bg);
+            color: var(--mark-text);
+            border-radius: 2px;
+            padding: 0 1px;
+        }
+
+        /* Tree View */
+        .tree-view {
+            white-space: normal;
+            font-family: var(--code-font);
+            font-size: var(--code-size);
+        }
+
+        .tree-view details {
+            margin-left: 16px;
+        }
+
+        .tree-view summary {
+            cursor: pointer;
+            list-style: none;
+            outline: none;
+            user-select: none;
+            line-height: 1.6;
+        }
+
+        .tree-view summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .tree-view summary::before {
+            content: '▼';
+            font-size: 0.7em;
+            color: var(--text-muted);
+            display: inline-block;
+            width: 14px;
+        }
+
+        .tree-view details:not([open]) > summary::before {
+            content: '▶';
+        }
+
+        .tree-leaf {
+            margin-left: 30px;
+            line-height: 1.6;
+        }
+
+        .tree-meta {
+            color: var(--text-muted);
+            font-size: 0.85em;
+            margin-left: 6px;
+        }
+
+        /* Status Bar */
+        .status-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.8rem;
+        }
+
+        .status-ok { color: var(--ok-text); }
+        .status-err {
+            color: var(--err-text);
+            background: var(--err-bg);
+            padding: 2px 8px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* Diff View Specifics */
+        .diff-container {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            gap: 10px;
+            min-height: 0;
+        }
+
+        .diff-inputs {
+            display: flex;
+            gap: 12px;
+            height: 42%;
+            min-height: 150px;
+        }
+
+        .diff-simple-textarea {
+            flex: 1;
+            background: var(--bg-panel);
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 10px;
+            font-family: var(--code-font);
+            font-size: var(--code-size);
+            line-height: 1.5;
+            resize: none;
+            outline: none;
+        }
+
+        .diff-simple-textarea:focus {
+            border-color: var(--accent);
+        }
+
+        .diff-result-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-panel);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            overflow: hidden;
+            min-height: 0;
+        }
+
+        .diff-result-header {
+            padding: 6px 12px;
+            background: var(--bg-gutter);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.82rem;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .diff-legend {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            font-size: 0.78rem;
+        }
+
+        .legend-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 2px;
+            display: inline-block;
+        }
+
+        .diff-split-body {
+            display: flex;
+            flex: 1;
+            overflow: auto;
+            font-family: var(--code-font);
+            font-size: var(--code-size);
+            line-height: 1.55;
+        }
+
+        .diff-col {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .diff-col:first-child {
+            border-right: 1px solid var(--border-color);
+        }
+
+        .diff-row {
+            display: flex;
+            padding: 1px 8px;
+            white-space: pre-wrap;
+            word-break: break-all;
+            border-left: 3px solid transparent;
+        }
+
+        .diff-row.added {
+            background-color: var(--diff-add-bg);
+            border-left-color: var(--diff-add-border);
+        }
+
+        .diff-row.removed {
+            background-color: var(--diff-rem-bg);
+            border-left-color: var(--diff-rem-border);
+        }
+
+        .diff-row.modified {
+            background-color: var(--diff-mod-bg);
+            border-left-color: var(--diff-mod-border);
+        }
+
+        .diff-row.empty {
+            background-color: var(--bg-gutter);
+            opacity: 0.5;
+        }
+
+        .diff-ln {
+            width: 34px;
+            color: var(--text-muted);
+            user-select: none;
+            flex-shrink: 0;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="title-group">
+            <h1>JSON Araç Seti</h1>
+            <div class="mode-switcher">
+                <button id="modeFormatBtn" class="active" onclick="switchAppMode('format')">Formatla & İncele</button>
+                <button id="modeDiffBtn" onclick="switchAppMode('diff')">Karşılaştır (Diff)</button>
+            </div>
+        </div>
+
+        <div class="controls">
+            <select id="fontFamilySelect" onchange="updateTypography()" title="Yazı Tipi">
+                <option value="'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', 'Source Code Pro', 'source-code-pro', monospace">Monaco / Menlo (Varsayılan)</option>
+                <option value="'Consolas', 'Courier New', monospace">Consolas</option>
+                <option value="'Fira Code', 'JetBrains Mono', monospace">Fira / JetBrains Mono</option>
+                <option value="'Courier New', monospace">Courier New</option>
+            </select>
+
+            <select id="fontSizeSelect" onchange="updateTypography()" title="Yazı Boyutu">
+                <option value="12px">12px</option>
+                <option value="13px">13px</option>
+                <option value="14px">14px</option>
+            </select>
+
+            <select id="indentSelect" onchange="onSettingsChange()" title="Girinti Boyutu">
+                <option value="2">2 Boşluk</option>
+                <option value="4">4 Boşluk</option>
+                <option value="	">Tab</option>
+            </select>
+
+            <button class="secondary" id="themeBtn" onclick="toggleTheme()">🌙 Koyu Tema</button>
+        </div>
+    </header>
+
+    <!-- MOD 1: FORMATLA VE İNCELE -->
+    <div id="formatModeView" class="main-view">
+        <!-- Sol Panel -->
+        <div class="panel">
+            <div class="panel-header">
+                <div class="panel-tools">
+                    <span>Ham JSON</span>
+                    <input type="file" id="fileInput" accept=".json,.txt" class="hidden">
+                    <button class="secondary" onclick="document.getElementById('fileInput').click()">📂 Yükle</button>
+                    <button class="secondary" onclick="loadSample()">✨ Örnek</button>
+                    <button class="secondary toggle-on" id="wrapBtn" onclick="toggleWrap()">Sözcük Kaydır: Açık</button>
+                    <button class="secondary" onclick="clearFormat()">Temizle</button>
+                </div>
+                <div class="status-bar" id="statusBar"></div>
+            </div>
+
+            <div class="editor-box wrap-on" id="editorBox">
+                <div class="gutter" id="inputGutter"><div>1</div></div>
+                <div class="code-container">
+                    <div class="code-backdrop" id="inputBackdrop"></div>
+                    <textarea class="code-textarea" id="inputArea" spellcheck="false" placeholder="JSON verinizi buraya yapıştırın..."></textarea>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sağ Panel -->
+        <div class="panel">
+            <div class="panel-header">
+                <div class="panel-tools">
+                    <button id="tabCodeBtn" onclick="switchOutputTab('code')">Kod</button>
+                    <button id="tabTreeBtn" class="secondary" onclick="switchOutputTab('tree')">Ağaç (Tree)</button>
+                    <button id="expandAllBtn" class="secondary hidden" onclick="toggleAllTree(true)">+ Tümünü Aç</button>
+                    <button id="collapseAllBtn" class="secondary hidden" onclick="toggleAllTree(false)">- Tümünü Kapat</button>
+                </div>
+
+                <div class="panel-tools">
+                    <div class="search-box">
+                        <input type="text" id="searchInput" placeholder="Ara..." oninput="renderOutput()">
+                        <span class="search-count" id="searchCount"></span>
+                    </div>
+                    <button class="secondary" onclick="minifyOutput()">Küçült</button>
+                    <button class="secondary" onclick="copyOutput()">Kopyala</button>
+                    <button class="secondary" onclick="downloadOutput()">💾 İndir</button>
+                </div>
+            </div>
+
+            <div class="editor-box">
+                <div class="gutter" id="outputGutter"><div>1</div></div>
+                <div class="output-content wrap-on" id="codeOutput"></div>
+                <div class="output-content tree-view hidden" id="treeOutput"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MOD 2: YAN YANA JSON KARŞILAŞTIRMA (DIFF) -->
+    <div id="diffModeView" class="diff-container hidden">
+        <div class="diff-inputs">
+            <div class="panel">
+                <div class="panel-header">
+                    <span>1. JSON (Orijinal / Eski)</span>
+                    <div class="panel-tools">
+                        <button class="secondary" onclick="loadDiffSample()">✨ Örnek Yükle</button>
+                        <button class="secondary" onclick="formatDiffInputs()">İkisini de Formatla</button>
+                    </div>
+                </div>
+                <textarea class="diff-simple-textarea" id="diffLeftInput" spellcheck="false" placeholder="Birinci JSON verisini yapıştırın..." oninput="runDiff()"></textarea>
+            </div>
+
+            <div class="panel">
+                <div class="panel-header">
+                    <span>2. JSON (Yeni / Değiştirilmiş)</span>
+                    <div class="panel-tools">
+                        <button class="secondary" onclick="swapDiffInputs()">⇄ Yer Değiştir</button>
+                        <button class="secondary" onclick="clearDiff()">Temizle</button>
+                    </div>
+                </div>
+                <textarea class="diff-simple-textarea" id="diffRightInput" spellcheck="false" placeholder="İkinci JSON verisini yapıştırın..." oninput="runDiff()"></textarea>
+            </div>
+        </div>
+
+        <div class="diff-result-panel">
+            <div class="diff-result-header">
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <strong>Karşılaştırma Sonucu</strong>
+                    <span id="diffSummary" class="status-ok"></span>
+                </div>
+                <div class="diff-legend">
+                    <label style="cursor:pointer; display:flex; align-items:center; gap:4px;">
+                        <input type="checkbox" id="onlyDiffCheck" onchange="runDiff()"> Sadece Farkları Göster
+                    </label>
+                    <span class="legend-badge"><span class="dot" style="background:var(--diff-add-border)"></span> Eklendi</span>
+                    <span class="legend-badge"><span class="dot" style="background:var(--diff-rem-border)"></span> Silindi</span>
+                    <span class="legend-badge"><span class="dot" style="background:var(--diff-mod-border)"></span> Değişti</span>
+                </div>
+            </div>
+            <div class="diff-split-body" id="diffResultBody">
+                <div class="diff-col" id="diffColLeft"></div>
+                <div class="diff-col" id="diffColRight"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- STATE & STORAGE ---
+        let state = {
+            theme: localStorage.getItem('jf_theme') || 'light',
+            fontFamily: localStorage.getItem('jf_font') || "'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', 'Source Code Pro', 'source-code-pro', monospace",
+            fontSize: localStorage.getItem('jf_size') || '12px',
+            indent: localStorage.getItem('jf_indent') || '2',
+            wordWrap: true,
+            outputTab: 'code',
+            parsedData: null,
+            formattedText: '',
+            errorPos: null
+        };
+
+        const inputArea = document.getElementById('inputArea');
+        const inputBackdrop = document.getElementById('inputBackdrop');
+        const inputGutter = document.getElementById('inputGutter');
+        const outputGutter = document.getElementById('outputGutter');
+        const codeOutput = document.getElementById('codeOutput');
+        const treeOutput = document.getElementById('treeOutput');
+        const statusBar = document.getElementById('statusBar');
+
+        // --- INITIALIZATION ---
+        window.addEventListener('DOMContentLoaded', () => {
+            if (state.theme === 'dark') {
+                document.body.classList.add('dark-theme');
+                document.getElementById('themeBtn').textContent = '☀️ Açık Tema';
+            }
+            document.getElementById('fontFamilySelect').value = state.fontFamily;
+            document.getElementById('fontSizeSelect').value = state.fontSize;
+            document.getElementById('indentSelect').value = state.indent;
+            applyTypography();
+        });
+
+        function applyTypography() {
+            document.documentElement.style.setProperty('--code-font', state.fontFamily);
+            document.documentElement.style.setProperty('--code-size', state.fontSize);
+        }
+
+        function updateTypography() {
+            state.fontFamily = document.getElementById('fontFamilySelect').value;
+            state.fontSize = document.getElementById('fontSizeSelect').value;
+            localStorage.setItem('jf_font', state.fontFamily);
+            localStorage.setItem('jf_size', state.fontSize);
+            applyTypography();
+        }
+
+        function onSettingsChange() {
+            state.indent = document.getElementById('indentSelect').value;
+            localStorage.setItem('jf_indent', state.indent);
+            processInput();
+        }
+
+        function toggleTheme() {
+            state.theme = state.theme === 'light' ? 'dark' : 'light';
+            localStorage.setItem('jf_theme', state.theme);
+            document.body.classList.toggle('dark-theme', state.theme === 'dark');
+            document.getElementById('themeBtn').textContent = state.theme === 'dark' ? '☀️ Açık Tema' : '🌙 Koyu Tema';
+        }
+
+        function switchAppMode(mode) {
+            const isFormat = mode === 'format';
+            document.getElementById('formatModeView').classList.toggle('hidden', !isFormat);
+            document.getElementById('diffModeView').classList.toggle('hidden', isFormat);
+            document.getElementById('modeFormatBtn').classList.toggle('active', isFormat);
+            document.getElementById('modeDiffBtn').classList.toggle('active', !isFormat);
+        }
+
+        // --- EDITOR EVENTS & HIGHLIGHT ---
+        inputArea.addEventListener('input', () => {
+            syncBackdrop();
+            processInput();
+        });
+
+        inputArea.addEventListener('scroll', () => {
+            inputBackdrop.scrollTop = inputArea.scrollTop;
+            inputBackdrop.scrollLeft = inputArea.scrollLeft;
+            inputGutter.scrollTop = inputArea.scrollTop;
+        });
+
+        codeOutput.addEventListener('scroll', () => {
+            outputGutter.scrollTop = codeOutput.scrollTop;
+        });
+
+        inputArea.addEventListener('keydown', (e) => {
+            if (e.key === 'Tab') {
+                e.preventDefault();
+                const start = inputArea.selectionStart;
+                const end = inputArea.selectionEnd;
+                const tabStr = state.indent === '\t' ? '	' : ' '.repeat(Number(state.indent));
+                inputArea.value = inputArea.value.substring(0, start) + tabStr + inputArea.value.substring(end);
+                inputArea.selectionStart = inputArea.selectionEnd = start + tabStr.length;
+                syncBackdrop();
+                processInput();
+            }
+        });
+
+        document.getElementById('fileInput').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                inputArea.value = ev.target.result;
+                syncBackdrop();
+                processInput();
+            };
+            reader.readAsText(file);
+            e.target.value = '';
+        });
+
+        function toggleWrap() {
+            state.wordWrap = !state.wordWrap;
+            const btn = document.getElementById('wrapBtn');
+            const box = document.getElementById('editorBox');
+            btn.textContent = `Sözcük Kaydır: ${state.wordWrap ? 'Açık' : 'Kapalı'}`;
+            btn.classList.toggle('toggle-on', state.wordWrap);
+            box.classList.toggle('wrap-on', state.wordWrap);
+            box.classList.toggle('wrap-off', !state.wordWrap);
+            codeOutput.classList.toggle('wrap-on', state.wordWrap);
+        }
+
+        function syncBackdrop() {
+            let text = inputArea.value;
+            if (text.endsWith('')) text += ' ';
+            inputBackdrop.innerHTML = highlightJSON(text);
+        }
+
+        function updateGutter(gutterEl, text, errorLine = null) {
+            const count = text ? text.split('').length : 1;
+            let html = '';
+            for (let i = 1; i <= count; i++) {
+                html += `<div class="${i === errorLine ? 'err-line' : ''}">${i}</div>`;
+            }
+            gutterEl.innerHTML = html;
+        }
+
+        // --- PARSING & ERROR LOCATION ---
+        function getIndentValue() {
+            return state.indent === '\t' ? '	' : Number(state.indent);
+        }
+
+        function processInput() {
+            const raw = inputArea.value;
+            if (!raw.trim()) {
+                state.parsedData = null;
+                state.formattedText = '';
+                state.errorPos = null;
+                statusBar.innerHTML = '';
+                codeOutput.innerHTML = '';
+                treeOutput.innerHTML = '';
+                updateGutter(inputGutter, raw);
+                updateGutter(outputGutter, '');
+                document.getElementById('searchCount').textContent = '';
+                return;
+            }
+
+            try {
+                const parsed = JSON.parse(raw);
+                state.parsedData = parsed;
+                state.errorPos = null;
+                state.formattedText = JSON.stringify(parsed, null, getIndentValue());
+                statusBar.innerHTML = '<span class="status-ok">✓ Geçerli JSON</span>';
+                updateGutter(inputGutter, raw, null);
+                renderOutput();
+            } catch (err) {
+                const loc = extractErrorLocation(raw, err.message);
+                state.errorPos = loc;
+                updateGutter(inputGutter, raw, loc.line);
+                statusBar.innerHTML = `
+                    <div class="status-err">
+                        <span>✕ Hata (Satır ${loc.line}, Sütun ${loc.col})</span>
+                        <button onclick="jumpToError()" style="padding:1px 6px; font-size:0.75rem; background:#d63031;">Hataya Git</button>
+                    </div>
+                `;
+            }
+        }
+
+        function extractErrorLocation(text, msg) {
+            const lineMatch = msg.match(/line\s+(\d+)/i);
+            const colMatch = msg.match(/column\s+(\d+)/i);
+            if (lineMatch && colMatch) {
+                const line = parseInt(lineMatch[1], 10);
+                const col = parseInt(colMatch[1], 10);
+                const lines = text.split('');
+                let index = 0;
+                for (let i = 0; i < line - 1 && i < lines.length; i++) {
+                    index += lines[i].length + 1;
+                }
+                index += Math.max(0, col - 1);
+                return { line, col, index };
+            }
+
+            const posMatch = msg.match(/position\s+(\d+)/i);
+            const pos = posMatch ? parseInt(posMatch[1], 10) : 0;
+            const upToPos = text.slice(0, pos);
+            const lines = upToPos.split('');
+            return {
+                line: lines.length,
+                col: lines[lines.length - 1].length + 1,
+                index: pos
+            };
+        }
+
+        function jumpToError() {
+            if (!state.errorPos) return;
+            inputArea.focus();
+            inputArea.setSelectionRange(state.errorPos.index, state.errorPos.index + 1);
+        }
+
+        // --- OUTPUT RENDERING & SEARCH ---
+        function switchOutputTab(tab) {
+            state.outputTab = tab;
+            const isCode = tab === 'code';
+            document.getElementById('tabCodeBtn').classList.toggle('secondary', !isCode);
+            document.getElementById('tabTreeBtn').classList.toggle('secondary', isCode);
+            codeOutput.classList.toggle('hidden', !isCode);
+            outputGutter.classList.toggle('hidden', !isCode);
+            treeOutput.classList.toggle('hidden', isCode);
+            document.getElementById('expandAllBtn').classList.toggle('hidden', isCode);
+            document.getElementById('collapseAllBtn').classList.toggle('hidden', isCode);
+            renderOutput();
+        }
+
+        function renderOutput() {
+            if (!state.parsedData && !state.formattedText) return;
+            const query = document.getElementById('searchInput').value.trim();
+
+            if (state.outputTab === 'code') {
+                let html = highlightJSON(state.formattedText);
+                let count = 0;
+                if (query) {
+                    const res = applySearchHighlight(html, query);
+                    html = res.html;
+                    count = res.count;
+                }
+                codeOutput.innerHTML = html;
+                updateGutter(outputGutter, state.formattedText);
+                document.getElementById('searchCount').textContent = query ? `${count} eşleşme` : '';
+            } else {
+                treeOutput.innerHTML = '';
+                let matchCounter = { count: 0 };
+                treeOutput.appendChild(createTreeElement(state.parsedData, null, query, matchCounter));
+                document.getElementById('searchCount').textContent = query ? `${matchCounter.count} eşleşme` : '';
+            }
+        }
+
+        function applySearchHighlight(html, query) {
+            const escapedQuery = query.replace('/[.*+?^${}()|[\]\]/g', '\$&');
+            const regex = new RegExp(`(${escapedQuery})`, 'gi');
+            let count = 0;
+            const result = html.replace(/(<[^>]+>)|([^<]+)/g, (match, tag, text) => {
+                if (tag) return tag;
+                return text.replace(regex, (m) => {
+                    count++;
+                    return `<mark>${m}</mark>`;
+                });
+            });
+            return { html: result, count };
+        }
+
+        function highlightJSON(json) {
+            const esc = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            return esc.replace(/("(\u[a-zA-Z0-9]{4}|\[^u]|[^\"])*"(\s*:)?|(true|false|null)|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, (match) => {
+                let cls = 'syn-num';
+                if (/^"/.test(match)) {
+                    cls = /:$/.test(match) ? 'syn-key' : 'syn-str';
+                } else if (/true|false/.test(match)) {
+                    cls = 'syn-bool';
+                } else if (/null/.test(match)) {
+                    cls = 'syn-null';
+                }
+                return `<span class="${cls}">${match}</span>`;
+            });
+        }
+
+        function createTreeElement(data, key, query, counter) {
+            const isArray = Array.isArray(data);
+            const isObj = data !== null && typeof data === 'object';
+
+            const highlightText = (str) => {
+                const esc = String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                if (!query) return esc;
+                const regex = new RegExp(`(${query.replace('/[.*+?^${}()|[\]\]/g', '\$&')})`, 'gi');
+                return esc.replace(regex, (m) => {
+                    counter.count++;
+                    return `<mark>${m}</mark>`;
+                });
+            };
+
+            if (!isObj) {
+                const div = document.createElement('div');
+                div.className = 'tree-leaf';
+                const kHtml = key !== null ? `<span class="syn-key">"${highlightText(key)}"</span>: ` : '';
+                let vHtml = '';
+                if (typeof data === 'string') vHtml = `<span class="syn-str">"${highlightText(data)}"</span>`;
+                else if (typeof data === 'number') vHtml = `<span class="syn-num">${highlightText(data)}</span>`;
+                else if (typeof data === 'boolean') vHtml = `<span class="syn-bool">${highlightText(data)}</span>`;
+                else vHtml = `<span class="syn-null">${highlightText('null')}</span>`;
+                div.innerHTML = kHtml + vHtml;
+                return div;
+            }
+
+            const details = document.createElement('details');
+            details.open = true;
+            const summary = document.createElement('summary');
+            const keys = Object.keys(data);
+            const kHtml = key !== null ? `<span class="syn-key">"${highlightText(key)}"</span>: ` : '';
+            summary.innerHTML = `${kHtml}<span class="syn-punc">${isArray ? '[' : '{'}</span><span class="tree-meta">${keys.length} öğe</span>`;
+            details.appendChild(summary);
+
+            keys.forEach(k => {
+                details.appendChild(createTreeElement(data[k], isArray ? null : k, query, counter));
+            });
+
+            const closeDiv = document.createElement('div');
+            closeDiv.className = 'tree-leaf syn-punc';
+            closeDiv.style.marginLeft = '16px';
+            closeDiv.textContent = isArray ? ']' : '}';
+            details.appendChild(closeDiv);
+            return details;
+        }
+
+        function toggleAllTree(openState) {
+            treeOutput.querySelectorAll('details').forEach(d => d.open = openState);
+        }
+
+        function minifyOutput() {
+            if (!state.parsedData) return;
+            state.formattedText = JSON.stringify(state.parsedData);
+            switchOutputTab('code');
+        }
+
+        function copyOutput() {
+            if (!state.formattedText) return;
+            navigator.clipboard.writeText(state.formattedText);
+            const prev = statusBar.innerHTML;
+            statusBar.innerHTML = '<span class="status-ok">✓ Panoya kopyalandı!</span>';
+            setTimeout(() => { statusBar.innerHTML = prev; }, 1800);
+        }
+
+        function downloadOutput() {
+            if (!state.formattedText) return;
+            const blob = new Blob([state.formattedText], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'formatted.json';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function clearFormat() {
+            inputArea.value = '';
+            syncBackdrop();
+            processInput();
+        }
+
+        function loadSample() {
+            const sample = {
+                uygulama: "JSON Araç Seti",
+                surum: 2.5,
+                aktif: true,
+                ozellikler: ["Canlı Vurgulama", "Ağaç Görünümü", "Yan Yana Diff"],
+                ayarlar: { tema: "acik", girinti: 2, otomatikKaydet: null }
+            };
+            inputArea.value = JSON.stringify(sample);
+            syncBackdrop();
+            processInput();
+        }
+
+        // --- DIFF ENGINE (YAN YANA KARŞILAŞTIRMA) ---
+        function runDiff() {
+            const leftRaw = document.getElementById('diffLeftInput').value.trim();
+            const rightRaw = document.getElementById('diffRightInput').value.trim();
+            const colLeft = document.getElementById('diffColLeft');
+            const colRight = document.getElementById('diffColRight');
+            const summary = document.getElementById('diffSummary');
+            const onlyDiff = document.getElementById('onlyDiffCheck').checked;
+
+            if (!leftRaw && !rightRaw) {
+                colLeft.innerHTML = '';
+                colRight.innerHTML = '';
+                summary.textContent = '';
+                return;
+            }
+
+            let leftText = leftRaw;
+            let rightText = rightRaw;
+
+            try {
+                if (leftRaw) leftText = JSON.stringify(JSON.parse(leftRaw), null, getIndentValue());
+                if (rightRaw) rightText = JSON.stringify(JSON.parse(rightRaw), null, getIndentValue());
+                summary.className = 'status-ok';
+            } catch (e) {
+                summary.className = 'status-err';
+                summary.textContent = 'Not: JSON formatı geçersiz olduğu için satır bazlı ham metin karşılaştırılıyor.';
+            }
+
+            const linesA = leftText ? leftText.split('') : [];
+            const linesB = rightText ? rightText.split('') : [];
+            const diffRows = computeLCSDiff(linesA, linesB);
+
+            let addCount = 0, remCount = 0, modCount = 0;
+            let htmlL = '', htmlR = '';
+
+            diffRows.forEach(row => {
+                if (row.type === 'added') addCount++;
+                if (row.type === 'removed') remCount++;
+                if (row.type === 'modified') modCount++;
+
+                if (onlyDiff && row.type === 'equal') return;
+
+                const clsL = row.type === 'removed' ? 'removed' : (row.type === 'modified' ? 'modified' : (row.left === null ? 'empty' : ''));
+                const clsR = row.type === 'added' ? 'added' : (row.type === 'modified' ? 'modified' : (row.right === null ? 'empty' : ''));
+
+                htmlL += `<div class="diff-row ${clsL}"><span class="diff-ln">${row.lnL || ''}</span><span>${row.left !== null ? highlightJSON(row.left) : ''}</span></div>`;
+                htmlR += `<div class="diff-row ${clsR}"><span class="diff-ln">${row.lnR || ''}</span><span>${row.right !== null ? highlightJSON(row.right) : ''}</span></div>`;
+            });
+
+            colLeft.innerHTML = htmlL;
+            colRight.innerHTML = htmlR;
+
+            if (summary.className === 'status-ok') {
+                if (addCount === 0 && remCount === 0 && modCount === 0) {
+                    summary.textContent = '✓ İki JSON verisi birebir aynı.';
+                } else {
+                    summary.textContent = `${addCount} eklendi, ${remCount} silindi, ${modCount} değişti`;
+                }
+            }
+        }
+
+        function computeLCSDiff(a, b) {
+            const n = a.length, m = b.length;
+            const dp = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0));
+
+            for (let i = n - 1; i >= 0; i--) {
+                for (let j = m - 1; j >= 0; j--) {
+                    if (a[i] === b[j]) dp[i][j] = 1 + dp[i + 1][j + 1];
+                    else dp[i][j] = Math.max(dp[i + 1][j], dp[i][j + 1]);
+                }
+            }
+
+            const ops = [];
+            let i = 0, j = 0;
+            while (i < n && j < m) {
+                if (a[i] === b[j]) {
+                    ops.push({ type: 'equal', left: a[i], right: b[j], lnL: i + 1, lnR: j + 1 });
+                    i++; j++;
+                } else if (dp[i + 1][j] >= dp[i][j + 1]) {
+                    ops.push({ type: 'removed', left: a[i], right: null, lnL: i + 1, lnR: null });
+                    i++;
+                } else {
+                    ops.push({ type: 'added', left: null, right: b[j], lnL: null, lnR: j + 1 });
+                    j++;
+                }
+            }
+            while (i < n) {
+                ops.push({ type: 'removed', left: a[i], right: null, lnL: i + 1, lnR: null });
+                i++;
+            }
+            while (j < m) {
+                ops.push({ type: 'added', left: null, right: b[j], lnL: null, lnR: j + 1 });
+                j++;
+            }
+
+            // Ardışık silme + ekleme satırlarını "değişti (modified)" olarak birleştir
+            const merged = [];
+            for (let k = 0; k < ops.length; k++) {
+                if (ops[k].type === 'removed' && k + 1 < ops.length && ops[k + 1].type === 'added') {
+                    merged.push({
+                        type: 'modified',
+                        left: ops[k].left,
+                        right: ops[k + 1].right,
+                        lnL: ops[k].lnL,
+                        lnR: ops[k + 1].lnR
+                    });
+                    k++;
+                } else {
+                    merged.push(ops[k]);
+                }
+            }
+            return merged;
+        }
+
+        function formatDiffInputs() {
+            const l = document.getElementById('diffLeftInput');
+            const r = document.getElementById('diffRightInput');
+            try { if (l.value.trim()) l.value = JSON.stringify(JSON.parse(l.value), null, getIndentValue()); } catch (e) {}
+            try { if (r.value.trim()) r.value = JSON.stringify(JSON.parse(r.value), null, getIndentValue()); } catch (e) {}
+            runDiff();
+        }
+
+        function swapDiffInputs() {
+            const l = document.getElementById('diffLeftInput');
+            const r = document.getElementById('diffRightInput');
+            const tmp = l.value;
+            l.value = r.value;
+            r.value = tmp;
+            runDiff();
+        }
+
+        function clearDiff() {
+            document.getElementById('diffLeftInput').value = '';
+            document.getElementById('diffRightInput').value = '';
+            runDiff();
+        }
+
+        function loadDiffSample() {
+            const v1 = {
+                kullanici: "Ahmet Yılmaz",
+                rol: "Editor",
+                yetkiler: ["okuma", "yazma"],
+                aktif: true,
+                eskiAlan: "silinecek"
+            };
+            const v2 = {
+                kullanici: "Ahmet Yılmaz",
+                rol: "Admin",
+                yetkiler: ["okuma", "yazma", "silme"],
+                aktif: true,
+                yeniAlan: "eklendi"
+            };
+            document.getElementById('diffLeftInput').value = JSON.stringify(v1, null, 2);
+            document.getElementById('diffRightInput').value = JSON.stringify(v2, null, 2);
+            runDiff();
+        }
+    </script>
+</body>
+</html>
