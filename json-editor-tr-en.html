@@ -1,0 +1,1018 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title data-i18n="pageTitle">JSON Formatlayıcı & Karşılaştırıcı (Diff)</title>
+<style>
+  :root {
+    --bg-primary: #f8fafc;
+    --bg-secondary: #ffffff;
+    --bg-tertiary: #f1f5f9;
+    --text-primary: #0f172a;
+    --text-secondary: #475569;
+    --border-color: #cbd5e1;
+    --accent-color: #2563eb;
+    --accent-hover: #1d4ed8;
+    --success-bg: #dcfce7;
+    --success-text: #166534;
+    --error-bg: #fee2e2;
+    --error-text: #991b1b;
+    --diff-add-bg: #dcfce7;
+    --diff-add-text: #14532d;
+    --diff-del-bg: #fee2e2;
+    --diff-del-text: #7f1d1d;
+    --diff-mod-bg: #fef9c3;
+    --diff-mod-text: #713f12;
+    --editor-font: 'Monaco', 'Menlo', monospace;
+    --editor-size: 13px;
+  }
+
+  [data-theme="dark"] {
+    --bg-primary: #0f172a;
+    --bg-secondary: #1e293b;
+    --bg-tertiary: #334155;
+    --text-primary: #f8fafc;
+    --text-secondary: #94a3b8;
+    --border-color: #475569;
+    --accent-color: #3b82f6;
+    --accent-hover: #60a5fa;
+    --success-bg: #064e3b;
+    --success-text: #a7f3d0;
+    --error-bg: #7f1d1d;
+    --error-text: #fecaca;
+    --diff-add-bg: #064e3b;
+    --diff-add-text: #a7f3d0;
+    --diff-del-bg: #7f1d1d;
+    --diff-del-text: #fecaca;
+    --diff-mod-bg: #713f12;
+    --diff-mod-text: #fef08a;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* Header & Controls */
+  header {
+    background-color: var(--bg-secondary);
+    border-bottom: 1px solid var(--border-color);
+    padding: 0.75rem 1.25rem;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
+  .header-left, .header-right {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+
+  h1 {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--accent-color);
+    margin-right: 0.5rem;
+  }
+
+  .tabs {
+    display: flex;
+    background: var(--bg-tertiary);
+    padding: 0.25rem;
+    border-radius: 0.5rem;
+  }
+
+  .tab-btn {
+    padding: 0.4rem 0.85rem;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    font-weight: 600;
+    font-size: 0.85rem;
+    border-radius: 0.375rem;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .tab-btn.active {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+  }
+
+  select, button.control-btn {
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    padding: 0.4rem 0.65rem;
+    border-radius: 0.375rem;
+    font-size: 0.8rem;
+    cursor: pointer;
+    font-weight: 500;
+  }
+
+  button.control-btn:hover, select:hover {
+    border-color: var(--accent-color);
+  }
+
+  button.primary-btn {
+    background-color: var(--accent-color);
+    color: #fff;
+    border: none;
+  }
+
+  button.primary-btn:hover {
+    background-color: var(--accent-hover);
+  }
+
+  /* Language Switcher */
+  .lang-switcher {
+    display: flex;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: 0.375rem;
+    overflow: hidden;
+  }
+
+  .lang-btn {
+    padding: 0.35rem 0.6rem;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 0.78rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: 0.15s;
+  }
+
+  .lang-btn.active {
+    background: var(--accent-color);
+    color: #ffffff;
+  }
+
+  /* Main Workspace */
+  main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding: 0.75rem;
+    gap: 0.75rem;
+  }
+
+  .view-section {
+    display: none;
+    flex: 1;
+    gap: 0.75rem;
+    overflow: hidden;
+  }
+
+  .view-section.active {
+    display: flex;
+  }
+
+  .pane {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    overflow: hidden;
+  }
+
+  .pane-header {
+    background: var(--bg-tertiary);
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+
+  .pane-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+  }
+
+  .editor-wrapper {
+    flex: 1;
+    display: flex;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .line-numbers {
+    width: 3rem;
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+    text-align: right;
+    padding: 0.75rem 0.5rem;
+    font-family: var(--editor-font);
+    font-size: var(--editor-size);
+    line-height: 1.5;
+    user-select: none;
+    overflow: hidden;
+    border-right: 1px solid var(--border-color);
+  }
+
+  textarea.code-input {
+    flex: 1;
+    border: none;
+    resize: none;
+    padding: 0.75rem;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    font-family: var(--editor-font);
+    font-size: var(--editor-size);
+    line-height: 1.5;
+    outline: none;
+    white-space: pre;
+    overflow: auto;
+  }
+
+  textarea.code-input.wrap-on {
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .status-bar {
+    padding: 0.4rem 0.75rem;
+    font-size: 0.8rem;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .status-valid { background: var(--success-bg); color: var(--success-text); }
+  .status-error { background: var(--error-bg); color: var(--error-text); }
+
+  /* Tree View */
+  .tree-container {
+    flex: 1;
+    padding: 0.75rem;
+    overflow: auto;
+    font-family: var(--editor-font);
+    font-size: var(--editor-size);
+    line-height: 1.6;
+  }
+
+  .tree-node { margin-left: 1.25rem; }
+  .tree-toggle {
+    cursor: pointer;
+    user-select: none;
+    color: var(--text-secondary);
+    margin-right: 0.25rem;
+    display: inline-block;
+    width: 1rem;
+  }
+  .tree-key { color: var(--accent-color); font-weight: 600; }
+  .tree-string { color: #16a34a; }
+  .tree-number { color: #d97706; }
+  .tree-boolean { color: #9333ea; }
+  .tree-null { color: #64748b; font-style: italic; }
+
+  /* Diff View */
+  #diff-view { flex-direction: column; }
+  .diff-inputs { display: flex; flex: 1; gap: 0.75rem; min-height: 45%; }
+  .diff-result-pane { flex: 1; min-height: 45%; }
+
+  .diff-output {
+    flex: 1;
+    padding: 0.75rem;
+    overflow: auto;
+    font-family: var(--editor-font);
+    font-size: var(--editor-size);
+    line-height: 1.5;
+  }
+
+  .diff-row {
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    margin-bottom: 0.2rem;
+    display: flex;
+    gap: 0.5rem;
+  }
+  .diff-added { background: var(--diff-add-bg); color: var(--diff-add-text); }
+  .diff-removed { background: var(--diff-del-bg); color: var(--diff-del-text); }
+  .diff-modified { background: var(--diff-mod-bg); color: var(--diff-mod-text); }
+  .diff-unchanged { color: var(--text-secondary); }
+
+  .legend { display: flex; gap: 0.75rem; font-size: 0.78rem; align-items: center; }
+  .badge { padding: 0.15rem 0.45rem; border-radius: 0.25rem; font-weight: 600; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-left">
+    <h1 data-i18n="appTitle">JSON Araç Seti</h1>
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="format-view" data-i18n="tabFormat">Formatla & İncele</button>
+      <button class="tab-btn" data-tab="diff-view" data-i18n="tabDiff">Karşılaştır (Diff)</button>
+    </div>
+  </div>
+
+  <div class="header-right">
+    <select id="font-select" title="Font">
+      <option value="'Monaco', 'Menlo', monospace" data-i18n="fontDefault">Monaco / Menlo (Varsayılan)</option>
+      <option value="'Consolas', monospace">Consolas</option>
+      <option value="'Fira Code', 'JetBrains Mono', monospace">Fira / JetBrains Mono</option>
+      <option value="'Courier New', monospace">Courier New</option>
+    </select>
+
+    <select id="size-select" title="Font Size">
+      <option value="12px">12px</option>
+      <option value="13px" selected>13px</option>
+      <option value="14px">14px</option>
+      <option value="16px">16px</option>
+    </select>
+
+    <select id="indent-select" title="Indentation">
+      <option value="2" data-i18n="indent2">2 Boşluk</option>
+      <option value="4" data-i18n="indent4">4 Boşluk</option>
+      <option value="tab" data-i18n="indentTab">Tab</option>
+    </select>
+
+    <button id="theme-toggle" class="control-btn" data-i18n="themeDark">🌙 Koyu Tema</button>
+
+    <div class="lang-switcher" aria-label="Language Switcher">
+      <button class="lang-btn active" data-lang="tr">TR</button>
+      <button class="lang-btn" data-lang="en">EN</button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <!-- FORMAT & INSPECT VIEW -->
+  <section id="format-view" class="view-section active">
+    <!-- Left Pane: Raw Input -->
+    <div class="pane">
+      <div class="pane-header">
+        <span data-i18n="rawJsonTitle">Ham JSON</span>
+        <div class="pane-actions">
+          <input type="file" id="file-input" accept=".json,.txt" style="display:none">
+          <button class="control-btn" id="btn-upload" data-i18n="btnUpload">📂 Yükle</button>
+          <button class="control-btn" id="btn-sample" data-i18n="btnSample">✨ Örnek</button>
+          <button class="control-btn" id="btn-wrap" data-i18n="btnWrapOn">Sözcük Kaydır: Açık</button>
+          <button class="control-btn" id="btn-clear" data-i18n="btnClear">Temizle</button>
+        </div>
+      </div>
+      <div class="editor-wrapper">
+        <div class="line-numbers" id="raw-lines">1</div>
+        <textarea id="raw-input" class="code-input wrap-on" spellcheck="false" data-i18n-placeholder="rawPlaceholder" placeholder="JSON verinizi buraya yapıştırın..."></textarea>
+      </div>
+      <div class="status-bar status-valid" id="status-bar">
+        <span id="status-text" data-i18n="statusReady">Hazır</span>
+        <span id="char-count">0 karakter</span>
+      </div>
+    </div>
+
+    <!-- Right Pane: Formatted Code / Tree -->
+    <div class="pane">
+      <div class="pane-header">
+        <div class="pane-actions">
+          <button class="tab-btn active" id="subtab-code" data-i18n="subCode">Kod</button>
+          <button class="tab-btn" id="subtab-tree" data-i18n="subTree">Ağaç (Tree)</button>
+          <button class="control-btn tree-only" id="btn-expand-all" style="display:none;" data-i18n="btnExpandAll">+ Tümünü Aç</button>
+          <button class="control-btn tree-only" id="btn-collapse-all" style="display:none;" data-i18n="btnCollapseAll">- Tümünü Kapat</button>
+        </div>
+        <div class="pane-actions">
+          <button class="control-btn primary-btn" id="btn-format" data-i18n="btnFormat">Formatla</button>
+          <button class="control-btn" id="btn-minify" data-i18n="btnMinify">Küçült</button>
+          <button class="control-btn" id="btn-copy" data-i18n="btnCopy">Kopyala</button>
+          <button class="control-btn" id="btn-download" data-i18n="btnDownload">💾 İndir</button>
+        </div>
+      </div>
+
+      <div class="editor-wrapper" id="formatted-code-wrapper">
+        <div class="line-numbers" id="formatted-lines">1</div>
+        <textarea id="formatted-output" class="code-input wrap-on" readonly spellcheck="false"></textarea>
+      </div>
+
+      <div class="tree-container" id="tree-output" style="display:none;"></div>
+    </div>
+  </section>
+
+  <!-- DIFF VIEW -->
+  <section id="diff-view" class="view-section">
+    <div class="diff-inputs">
+      <!-- Left Diff Input -->
+      <div class="pane">
+        <div class="pane-header">
+          <span data-i18n="diffLeftTitle">1. JSON (Orijinal / Eski)</span>
+          <div class="pane-actions">
+            <button class="control-btn" id="btn-diff-sample" data-i18n="btnLoadSample">✨ Örnek Yükle</button>
+            <button class="control-btn primary-btn" id="btn-diff-format-both" data-i18n="btnFormatBoth">İkisini de Formatla</button>
+          </div>
+        </div>
+        <div class="editor-wrapper">
+          <div class="line-numbers" id="diff1-lines">1</div>
+          <textarea id="diff1-input" class="code-input wrap-on" spellcheck="false"></textarea>
+        </div>
+      </div>
+
+      <!-- Right Diff Input -->
+      <div class="pane">
+        <div class="pane-header">
+          <span data-i18n="diffRightTitle">2. JSON (Yeni / Değiştirilmiş)</span>
+          <div class="pane-actions">
+            <button class="control-btn" id="btn-diff-swap" data-i18n="btnSwap">⇄ Yer Değiştir</button>
+            <button class="control-btn" id="btn-diff-clear" data-i18n="btnClear">Temizle</button>
+          </div>
+        </div>
+        <div class="editor-wrapper">
+          <div class="line-numbers" id="diff2-lines">1</div>
+          <textarea id="diff2-input" class="code-input wrap-on" spellcheck="false"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- Diff Result Pane -->
+    <div class="pane diff-result-pane">
+      <div class="pane-header">
+        <span data-i18n="diffResultTitle">Karşılaştırma Sonucu</span>
+        <div class="legend">
+          <label style="display:flex;align-items:center;gap:0.3rem;cursor:pointer;">
+            <input type="checkbox" id="chk-only-diffs">
+            <span data-i18n="onlyDiffs">Sadece Farkları Göster</span>
+          </label>
+          <span class="badge diff-added" data-i18n="badgeAdded">Eklendi</span>
+          <span class="badge diff-removed" data-i18n="badgeRemoved">Silindi</span>
+          <span class="badge diff-modified" data-i18n="badgeModified">Değişti</span>
+        </div>
+      </div>
+      <div class="diff-output" id="diff-output"></div>
+    </div>
+  </section>
+</main>
+
+<script>
+  // --- TRANSLATIONS (i18n) ---
+  const translations = {
+    tr: {
+      pageTitle: "JSON Formatlayıcı & Karşılaştırıcı (Diff)",
+      appTitle: "JSON Araç Seti",
+      tabFormat: "Formatla & İncele",
+      tabDiff: "Karşılaştır (Diff)",
+      fontDefault: "Monaco / Menlo (Varsayılan)",
+      indent2: "2 Boşluk",
+      indent4: "4 Boşluk",
+      indentTab: "Tab",
+      themeDark: "🌙 Koyu Tema",
+      themeLight: "☀️ Açık Tema",
+      rawJsonTitle: "Ham JSON",
+      btnUpload: "📂 Yükle",
+      btnSample: "✨ Örnek",
+      btnWrapOn: "Sözcük Kaydır: Açık",
+      btnWrapOff: "Sözcük Kaydır: Kapalı",
+      btnClear: "Temizle",
+      rawPlaceholder: "JSON verinizi buraya yapıştırın...",
+      statusReady: "Hazır",
+      statusValid: "Geçerli JSON",
+      statusError: "Hata: ",
+      charSuffix: "karakter",
+      subCode: "Kod",
+      subTree: "Ağaç (Tree)",
+      btnExpandAll: "+ Tümünü Aç",
+      btnCollapseAll: "- Tümünü Kapat",
+      btnFormat: "Formatla",
+      btnMinify: "Küçült",
+      btnCopy: "Kopyala",
+      btnCopied: "✓ Kopyalandı",
+      btnDownload: "💾 İndir",
+      diffLeftTitle: "1. JSON (Orijinal / Eski)",
+      btnLoadSample: "✨ Örnek Yükle",
+      btnFormatBoth: "İkisini de Formatla",
+      diffRightTitle: "2. JSON (Yeni / Değiştirilmiş)",
+      btnSwap: "⇄ Yer Değiştir",
+      diffResultTitle: "Karşılaştırma Sonucu",
+      onlyDiffs: "Sadece Farkları Göster",
+      badgeAdded: "Eklendi",
+      badgeRemoved: "Silindi",
+      badgeModified: "Değişti",
+      diffPlaceholder: "Karşılaştırmak için her iki alana da geçerli JSON girin.",
+      diffInvalid1: "1. JSON geçersiz sözdizimine sahip.",
+      diffInvalid2: "2. JSON geçersiz sözdizimine sahip.",
+      diffNoDiff: "Fark bulunamadı — her iki JSON verisi tamamen aynı.",
+      treeEmpty: "Ağaç görünümü için geçerli bir JSON girin."
+    },
+    en: {
+      pageTitle: "JSON Formatter & Comparator (Diff)",
+      appTitle: "JSON Toolkit",
+      tabFormat: "Format & Inspect",
+      tabDiff: "Compare (Diff)",
+      fontDefault: "Monaco / Menlo (Default)",
+      indent2: "2 Spaces",
+      indent4: "4 Spaces",
+      indentTab: "Tab",
+      themeDark: "🌙 Dark Theme",
+      themeLight: "☀️ Light Theme",
+      rawJsonTitle: "Raw JSON",
+      btnUpload: "📂 Upload",
+      btnSample: "✨ Sample",
+      btnWrapOn: "Word Wrap: On",
+      btnWrapOff: "Word Wrap: Off",
+      btnClear: "Clear",
+      rawPlaceholder: "Paste your JSON data here...",
+      statusReady: "Ready",
+      statusValid: "Valid JSON",
+      statusError: "Error: ",
+      charSuffix: "chars",
+      subCode: "Code",
+      subTree: "Tree",
+      btnExpandAll: "+ Expand All",
+      btnCollapseAll: "- Collapse All",
+      btnFormat: "Format",
+      btnMinify: "Minify",
+      btnCopy: "Copy",
+      btnCopied: "✓ Copied",
+      btnDownload: "💾 Download",
+      diffLeftTitle: "1. JSON (Original / Old)",
+      btnLoadSample: "✨ Load Sample",
+      btnFormatBoth: "Format Both",
+      diffRightTitle: "2. JSON (New / Modified)",
+      btnSwap: "⇄ Swap",
+      diffResultTitle: "Comparison Result",
+      onlyDiffs: "Show Differences Only",
+      badgeAdded: "Added",
+      badgeRemoved: "Removed",
+      badgeModified: "Modified",
+      diffPlaceholder: "Enter valid JSON in both panels to compare.",
+      diffInvalid1: "1st JSON has invalid syntax.",
+      diffInvalid2: "2nd JSON has invalid syntax.",
+      diffNoDiff: "No differences found — both JSON inputs are identical.",
+      treeEmpty: "Enter valid JSON to inspect the tree view."
+    }
+  };
+
+  let currentLang = localStorage.getItem("json_tool_lang") || "tr";
+  let isDark = localStorage.getItem("json_tool_theme") === "dark";
+  let wordWrap = true;
+
+  function t(key) {
+    return translations[currentLang][key] || key;
+  }
+
+  function applyLanguage(lang) {
+    currentLang = lang;
+    localStorage.setItem("json_tool_lang", lang);
+    document.documentElement.lang = lang;
+
+    document.querySelectorAll(".lang-btn").forEach(btn => {
+      btn.classList.toggle("active", btn.dataset.lang === lang);
+    });
+
+    document.querySelectorAll("[data-i18n]").forEach(el => {
+      const key = el.getAttribute("data-i18n");
+      if (translations[lang][key]) {
+        el.textContent = translations[lang][key];
+      }
+    });
+
+    document.querySelectorAll("[data-i18n-placeholder]").forEach(el => {
+      const key = el.getAttribute("data-i18n-placeholder");
+      if (translations[lang][key]) {
+        el.placeholder = translations[lang][key];
+      }
+    });
+
+    updateThemeButtonText();
+    updateWrapButtonText();
+    processRawJson();
+    computeDiff();
+  }
+
+  // --- THEME & SETTINGS ---
+  function updateThemeButtonText() {
+    const btn = document.getElementById("theme-toggle");
+    btn.textContent = isDark ? t("themeLight") : t("themeDark");
+  }
+
+  function applyTheme() {
+    document.documentElement.setAttribute("data-theme", isDark ? "dark" : "light");
+    updateThemeButtonText();
+  }
+
+  document.getElementById("theme-toggle").addEventListener("click", () => {
+    isDark = !isDark;
+    localStorage.setItem("json_tool_theme", isDark ? "dark" : "light");
+    applyTheme();
+  });
+
+  document.getElementById("font-select").addEventListener("change", (e) => {
+    document.documentElement.style.setProperty("--editor-font", e.target.value);
+  });
+
+  document.getElementById("size-select").addEventListener("change", (e) => {
+    document.documentElement.style.setProperty("--editor-size", e.target.value);
+  });
+
+  document.getElementById("indent-select").addEventListener("change", () => {
+    processRawJson();
+  });
+
+  function getIndent() {
+    const val = document.getElementById("indent-select").value;
+    return val === "tab" ? "\t" : Number(val);
+  }
+
+  // --- TABS ---
+  document.querySelectorAll(".header-left .tab-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".header-left .tab-btn").forEach(b => b.classList.remove("active"));
+      document.querySelectorAll(".view-section").forEach(s => s.classList.remove("active"));
+      btn.classList.add("active");
+      document.getElementById(btn.dataset.tab).classList.add("active");
+    });
+  });
+
+  // --- LINE NUMBERS ---
+  function updateLineNumbers(textarea, lineBox) {
+    const lines = textarea.value.split("\n").length;
+    lineBox.innerHTML = Array.from({ length: lines }, (_, i) => i + 1).join("<br>");
+  }
+
+  function syncScroll(textarea, lineBox) {
+    lineBox.scrollTop = textarea.scrollTop;
+  }
+
+  // --- FORMAT & INSPECT LOGIC ---
+  const rawInput = document.getElementById("raw-input");
+  const rawLines = document.getElementById("raw-lines");
+  const formattedOutput = document.getElementById("formatted-output");
+  const formattedLines = document.getElementById("formatted-lines");
+  const treeOutput = document.getElementById("tree-output");
+  const statusBar = document.getElementById("status-bar");
+  const statusText = document.getElementById("status-text");
+  const charCount = document.getElementById("char-count");
+
+  rawInput.addEventListener("input", processRawJson);
+  rawInput.addEventListener("scroll", () => syncScroll(rawInput, rawLines));
+  formattedOutput.addEventListener("scroll", () => syncScroll(formattedOutput, formattedLines));
+
+  function processRawJson(minify = false) {
+    const text = rawInput.value;
+    updateLineNumbers(rawInput, rawLines);
+    charCount.textContent = `${text.length} ${t("charSuffix")}`;
+
+    if (!text.trim()) {
+      statusBar.className = "status-bar status-valid";
+      statusText.textContent = t("statusReady");
+      formattedOutput.value = "";
+      updateLineNumbers(formattedOutput, formattedLines);
+      treeOutput.innerHTML = `<div style="color:var(--text-secondary)">${t("treeEmpty")}</div>`;
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(text);
+      statusBar.className = "status-bar status-valid";
+      statusText.textContent = t("statusValid");
+      const formatted = minify ? JSON.stringify(parsed) : JSON.stringify(parsed, null, getIndent());
+      formattedOutput.value = formatted;
+      updateLineNumbers(formattedOutput, formattedLines);
+      renderTree(parsed, treeOutput);
+    } catch (err) {
+      statusBar.className = "status-bar status-error";
+      statusText.textContent = t("statusError") + err.message;
+      treeOutput.innerHTML = `<div style="color:var(--error-text)">${t("statusError")}${err.message}</div>`;
+    }
+  }
+
+  // Word Wrap
+  function updateWrapButtonText() {
+    document.getElementById("btn-wrap").textContent = wordWrap ? t("btnWrapOn") : t("btnWrapOff");
+  }
+
+  document.getElementById("btn-wrap").addEventListener("click", () => {
+    wordWrap = !wordWrap;
+    rawInput.classList.toggle("wrap-on", wordWrap);
+    formattedOutput.classList.toggle("wrap-on", wordWrap);
+    updateWrapButtonText();
+  });
+
+  // Subtabs (Code vs Tree)
+  document.getElementById("subtab-code").addEventListener("click", () => {
+    document.getElementById("subtab-code").classList.add("active");
+    document.getElementById("subtab-tree").classList.remove("active");
+    document.getElementById("formatted-code-wrapper").style.display = "flex";
+    treeOutput.style.display = "none";
+    document.querySelectorAll(".tree-only").forEach(el => el.style.display = "none");
+  });
+
+  document.getElementById("subtab-tree").addEventListener("click", () => {
+    document.getElementById("subtab-tree").classList.add("active");
+    document.getElementById("subtab-code").classList.remove("active");
+    document.getElementById("formatted-code-wrapper").style.display = "none";
+    treeOutput.style.display = "block";
+    document.querySelectorAll(".tree-only").forEach(el => el.style.display = "inline-block");
+  });
+
+  // Tree Builder
+  function renderTree(data, container) {
+    container.innerHTML = "";
+    container.appendChild(createTreeNode(null, data));
+  }
+
+  function createTreeNode(key, value) {
+    const wrapper = document.createElement("div");
+    wrapper.className = "tree-node";
+
+    const isObject = value !== null && typeof value === "object";
+    const isArray = Array.isArray(value);
+
+    if (isObject) {
+      const entries = Object.entries(value);
+      const header = document.createElement("div");
+
+      const toggle = document.createElement("span");
+      toggle.className = "tree-toggle";
+      toggle.textContent = "▼";
+      header.appendChild(toggle);
+
+      if (key !== null) {
+        const keySpan = document.createElement("span");
+        keySpan.className = "tree-key";
+        keySpan.textContent = `"${key}": `;
+        header.appendChild(keySpan);
+      }
+
+      const openBracket = document.createElement("span");
+      openBracket.textContent = isArray ? `[ (${entries.length})` : `{ (${entries.length})`;
+      header.appendChild(openBracket);
+
+      const childrenContainer = document.createElement("div");
+      entries.forEach(([k, v]) => {
+        childrenContainer.appendChild(createTreeNode(isArray ? null : k, v));
+      });
+
+      const closeBracket = document.createElement("div");
+      closeBracket.textContent = isArray ? "]" : "}";
+
+      toggle.addEventListener("click", () => {
+        const collapsed = childrenContainer.style.display === "none";
+        childrenContainer.style.display = collapsed ? "block" : "none";
+        closeBracket.style.display = collapsed ? "block" : "none";
+        toggle.textContent = collapsed ? "▼" : "▶";
+        openBracket.textContent = collapsed
+          ? (isArray ? `[ (${entries.length})` : `{ (${entries.length})`)
+          : (isArray ? `[ ... ]` : `{ ... }`);
+      });
+
+      wrapper.appendChild(header);
+      wrapper.appendChild(childrenContainer);
+      wrapper.appendChild(closeBracket);
+    } else {
+      if (key !== null) {
+        const keySpan = document.createElement("span");
+        keySpan.className = "tree-key";
+        keySpan.textContent = `"${key}": `;
+        wrapper.appendChild(keySpan);
+      }
+
+      const valSpan = document.createElement("span");
+      if (value === null) {
+        valSpan.className = "tree-null";
+        valSpan.textContent = "null";
+      } else if (typeof value === "string") {
+        valSpan.className = "tree-string";
+        valSpan.textContent = `"${value}"`;
+      } else if (typeof value === "number") {
+        valSpan.className = "tree-number";
+        valSpan.textContent = value;
+      } else if (typeof value === "boolean") {
+        valSpan.className = "tree-boolean";
+        valSpan.textContent = value;
+      }
+      wrapper.appendChild(valSpan);
+    }
+
+    return wrapper;
+  }
+
+  document.getElementById("btn-expand-all").addEventListener("click", () => {
+    treeOutput.querySelectorAll(".tree-toggle").forEach(tgl => {
+      if (tgl.textContent === "▶") tgl.click();
+    });
+  });
+
+  document.getElementById("btn-collapse-all").addEventListener("click", () => {
+    treeOutput.querySelectorAll(".tree-toggle").forEach(tgl => {
+      if (tgl.textContent === "▼") tgl.click();
+    });
+  });
+
+  // Toolbar Actions
+  document.getElementById("btn-format").addEventListener("click", () => processRawJson(false));
+  document.getElementById("btn-minify").addEventListener("click", () => processRawJson(true));
+
+  document.getElementById("btn-clear").addEventListener("click", () => {
+    rawInput.value = "";
+    processRawJson();
+  });
+
+  document.getElementById("btn-sample").addEventListener("click", () => {
+    const sample = {
+      project: "JSON Toolkit",
+      version: 2.1,
+      active: true,
+      languages: ["tr", "en"],
+      author: { name: "Developer", role: "Frontend" },
+      items: [
+        { id: 101, status: "ready" },
+        { id: 102, status: "pending" }
+      ]
+    };
+    rawInput.value = JSON.stringify(sample, null, getIndent());
+    processRawJson();
+  });
+
+  document.getElementById("btn-upload").addEventListener("click", () => {
+    document.getElementById("file-input").click();
+  });
+
+  document.getElementById("file-input").addEventListener("change", (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      rawInput.value = ev.target.result;
+      processRawJson();
+    };
+    reader.readAsText(file);
+  });
+
+  document.getElementById("btn-copy").addEventListener("click", () => {
+    if (!formattedOutput.value) return;
+    navigator.clipboard.writeText(formattedOutput.value);
+    const btn = document.getElementById("btn-copy");
+    btn.textContent = t("btnCopied");
+    setTimeout(() => { btn.textContent = t("btnCopy"); }, 1500);
+  });
+
+  document.getElementById("btn-download").addEventListener("click", () => {
+    if (!formattedOutput.value) return;
+    const blob = new Blob([formattedOutput.value], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "formatted.json";
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  // --- DIFF LOGIC ---
+  const diff1 = document.getElementById("diff1-input");
+  const diff2 = document.getElementById("diff2-input");
+  const diff1Lines = document.getElementById("diff1-lines");
+  const diff2Lines = document.getElementById("diff2-lines");
+  const diffOutput = document.getElementById("diff-output");
+  const chkOnlyDiffs = document.getElementById("chk-only-diffs");
+
+  diff1.addEventListener("input", () => { updateLineNumbers(diff1, diff1Lines); computeDiff(); });
+  diff2.addEventListener("input", () => { updateLineNumbers(diff2, diff2Lines); computeDiff(); });
+  diff1.addEventListener("scroll", () => syncScroll(diff1, diff1Lines));
+  diff2.addEventListener("scroll", () => syncScroll(diff2, diff2Lines));
+  chkOnlyDiffs.addEventListener("change", computeDiff);
+
+  function flattenJson(obj, prefix = "", res = {}) {
+    if (obj === null || typeof obj !== "object") {
+      res[prefix || "root"] = obj;
+      return res;
+    }
+    const keys = Object.keys(obj);
+    if (keys.length === 0) {
+      res[prefix || "root"] = Array.isArray(obj) ? "[]" : "{}";
+      return res;
+    }
+    for (const k of keys) {
+      const path = Array.isArray(obj) ? `${prefix}[${k}]` : (prefix ? `${prefix}.${k}` : k);
+      flattenJson(obj[k], path, res);
+    }
+    return res;
+  }
+
+  function computeDiff() {
+    const v1 = diff1.value.trim();
+    const v2 = diff2.value.trim();
+
+    if (!v1 || !v2) {
+      diffOutput.innerHTML = `<div style="color:var(--text-secondary)">${t("diffPlaceholder")}</div>`;
+      return;
+    }
+
+    let obj1, obj2;
+    try { obj1 = JSON.parse(v1); } catch {
+      diffOutput.innerHTML = `<div style="color:var(--error-text)">${t("diffInvalid1")}</div>`;
+      return;
+    }
+    try { obj2 = JSON.parse(v2); } catch {
+      diffOutput.innerHTML = `<div style="color:var(--error-text)">${t("diffInvalid2")}</div>`;
+      return;
+    }
+
+    const flat1 = flattenJson(obj1);
+    const flat2 = flattenJson(obj2);
+    const allKeys = Array.from(new Set([...Object.keys(flat1), ...Object.keys(flat2)]));
+    const onlyDiffs = chkOnlyDiffs.checked;
+
+    diffOutput.innerHTML = "";
+    let diffCount = 0;
+
+    allKeys.forEach(key => {
+      const in1 = Object.prototype.hasOwnProperty.call(flat1, key);
+      const in2 = Object.prototype.hasOwnProperty.call(flat2, key);
+      const row = document.createElement("div");
+
+      if (!in1 && in2) {
+        diffCount++;
+        row.className = "diff-row diff-added";
+        row.textContent = `+ ${key}: ${JSON.stringify(flat2[key])}`;
+        diffOutput.appendChild(row);
+      } else if (in1 && !in2) {
+        diffCount++;
+        row.className = "diff-row diff-removed";
+        row.textContent = `- ${key}: ${JSON.stringify(flat1[key])}`;
+        diffOutput.appendChild(row);
+      } else if (flat1[key] !== flat2[key]) {
+        diffCount++;
+        row.className = "diff-row diff-modified";
+        row.textContent = `~ ${key}: ${JSON.stringify(flat1[key])}  →  ${JSON.stringify(flat2[key])}`;
+        diffOutput.appendChild(row);
+      } else if (!onlyDiffs) {
+        row.className = "diff-row diff-unchanged";
+        row.textContent = `  ${key}: ${JSON.stringify(flat1[key])}`;
+        diffOutput.appendChild(row);
+      }
+    });
+
+    if (diffCount === 0 && onlyDiffs) {
+      diffOutput.innerHTML = `<div style="color:var(--success-text)">${t("diffNoDiff")}</div>`;
+    }
+  }
+
+  document.getElementById("btn-diff-sample").addEventListener("click", () => {
+    const s1 = { app: "Editor", version: 1.0, theme: "light", features: ["format", "tree"] };
+    const s2 = { app: "Editor", version: 2.0, theme: "dark", features: ["format", "tree", "i18n"], lang: "tr/en" };
+    diff1.value = JSON.stringify(s1, null, getIndent());
+    diff2.value = JSON.stringify(s2, null, getIndent());
+    updateLineNumbers(diff1, diff1Lines);
+    updateLineNumbers(diff2, diff2Lines);
+    computeDiff();
+  });
+
+  document.getElementById("btn-diff-format-both").addEventListener("click", () => {
+    try { diff1.value = JSON.stringify(JSON.parse(diff1.value), null, getIndent()); } catch {}
+    try { diff2.value = JSON.stringify(JSON.parse(diff2.value), null, getIndent()); } catch {}
+    updateLineNumbers(diff1, diff1Lines);
+    updateLineNumbers(diff2, diff2Lines);
+    computeDiff();
+  });
+
+  document.getElementById("btn-diff-swap").addEventListener("click", () => {
+    const tmp = diff1.value;
+    diff1.value = diff2.value;
+    diff2.value = tmp;
+    updateLineNumbers(diff1, diff1Lines);
+    updateLineNumbers(diff2, diff2Lines);
+    computeDiff();
+  });
+
+  document.getElementById("btn-diff-clear").addEventListener("click", () => {
+    diff1.value = "";
+    diff2.value = "";
+    updateLineNumbers(diff1, diff1Lines);
+    updateLineNumbers(diff2, diff2Lines);
+    computeDiff();
+  });
+
+  // --- LANGUAGE SWITCHER EVENTS ---
+  document.querySelectorAll(".lang-btn").forEach(btn => {
+    btn.addEventListener("click", () => applyLanguage(btn.dataset.lang));
+  });
+
+  // Init
+  applyTheme();
+  applyLanguage(currentLang);
+</script>
+</body>
+</html>
